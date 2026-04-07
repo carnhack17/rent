@@ -1,0 +1,52 @@
+.post-listing-container {
+  max-width: 600px;
+  margin: 20px auto;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+form label {
+  font-weight: bold;
+  margin-top: 10px;
+}
+
+form input, form select {
+  width: 100%;
+  padding: 6px;
+  margin-top: 4px;
+}
+
+.features {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.features label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.image-preview img {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  margin-right: 5px;
+  margin-top: 5px;
+  border-radius: 4px;
+}
+
+button {
+  margin-top: 15px;
+  padding: 10px;
+  width: 100%;
+  font-weight: bold;
+  cursor: pointer;
+  background-color: #4caf50;
+  color: white;
+  border: none;
+  border-radius: 6px;
+}
