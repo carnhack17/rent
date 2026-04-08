@@ -96,12 +96,13 @@ export default function PostListing() {
       );
 
       const phone = form.whatsapp.replace(/\D/g, "");
-      const waLink = `https://wa.me/${phone}?text=${message}`;
 
-      // 🔥 REDIRECTION vers WhatsApp
-      waWindow.location.href = waLink;
+const waLink = `https://api.whatsapp.com/send?phone=${phone}&text=${message}`;
 
-      alert("Annonce publiée 🎉");
+// 🔥 REDIRECTION vers WhatsApp
+waWindow.location.href = waLink;
+
+alert("Annonce publiée 🎉");
 
       navigate("/");
 
