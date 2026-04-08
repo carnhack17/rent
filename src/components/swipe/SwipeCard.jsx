@@ -1,79 +1,62 @@
-import { motion } from "framer-motion";
+import { useRef } from "react";
+import "../styles/SwipeCard.css";
 
-export default function SwipeCard({ data, onSwipe }) {
+export default function SwipeCard({ listing, visible, onSwipe }) {
+  const cardRef = useRef();
+
+  if (!visible) return null;
+
+  const handleKey = (e) => {
+    switch (e.key) {
+      case "ArrowUp":
+        onSwipe("up");
+        break;
+      case "ArrowDown":
+        onSwipe("down");
+        break;
+      case "ArrowRight":
+        onSwipe("right");
+        break;
+      case "ArrowLeft":
+        onSwipe("left");
+        break;
+      default:
+        break;
+    }
+  };
+
+  // ✅ La première image du bien en arrière-plan
+  const bgImage = listing.images && listing.images.length
+    ? listing.images[0]
+    : "https://via.placeholder.com/800x600?text=Pas+d'image"; // fallback
+
   return (
-    <motion.div
-      drag
-      dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
-      onDragEnd={(e, info) => {
-        if (info.offset.x > 100) onSwipe("right");
-        else if (info.offset.x < -100) onSwipe("left");
-        else if (info.offset.y < -100) onSwipe("up");
-        else if (info.offset.y > 100) onSwipe("down");
-      }}
+    <div
+      className="swipe-card"
+      ref={cardRef}
+      tabIndex={0}
+      onKeyDown={handleKey}
       style={{
-        position: "absolute",
-        width: "100%",
-        height: "75vh",
-        borderRadius: "24px",
-        overflow: "hidden",
-        backgroundImage: `url(${data.image})`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        boxShadow: "0 10px 30px rgba(0,0,0,0.2)",
+        backgroundImage: `url(${bgImage})`,
       }}
     >
-      {/* Overlay sombre */}
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          background: "linear-gradient(to top, rgba(0,0,0,0.8), transparent 60%)",
-        }}
-      />
-
-      {/* Contenu */}
-      <div
-        style={{
-          position: "absolute",
-          bottom: 0,
-          width: "100%",
-          padding: "20px",
-          color: "white",
-        }}
-      >
-        {/* Prix */}
-        <h2 style={{ fontSize: "24px", margin: 0 }}>
-          {data.price}
-        </h2>
-
-        {/* Type */}
-        <p style={{ margin: "5px 0", fontSize: "16px" }}>
-          {data.type}
+      <div className="swipe-overlay">
+        <h2>{listing.type_logement}</h2>
+        <p>
+          {listing.city} {listing.district && `- ${listing.district}`}
         </p>
-
-        {/* Ville / quartier */}
-        <p style={{ margin: "5px 0", opacity: 0.9 }}>
-          {data.city} {data.district && `• ${data.district}`}
+        <p>
+          {listing.price} / {listing.duration}
         </p>
-
-        {/* Tags */}
-        <div style={{ display: "flex", gap: "8px", marginTop: "10px", flexWrap: "wrap" }}>
-          {data.features?.map((f, i) => (
-            <span
-              key={i}
-              style={{
-                background: "rgba(255,255,255,0.2)",
-                padding: "5px 10px",
-                borderRadius: "10px",
-                fontSize: "12px",
-              }}
-            >
-              {f}
-            </span>
-          ))}
-        </div>
+        <p>{listing.rooms} pièces</p>
       </div>
-    </motion.div>
+
+      <div className="swipe-hints">
+        <span>⬆ Suivant</span>
+        <span>⬇ Précédent</span>
+        <span>➡ WhatsApp</span>
+        <span>⬅ Plus d'images</span>
+      </div>
+    </div>
   );
 }

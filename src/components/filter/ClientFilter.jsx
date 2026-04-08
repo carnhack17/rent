@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 
 export default function ClientFilter({ onFilter }) {
@@ -10,7 +9,16 @@ export default function ClientFilter({ onFilter }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onFilter({ city, district, priceRange, duration, type });
+
+    if (!city.trim()) return alert("Ville obligatoire");
+
+    onFilter({
+      city: city.trim(),
+      district: district.trim(),
+      priceRange,
+      duration,
+      type,
+    });
   };
 
   return (
@@ -38,7 +46,7 @@ export default function ClientFilter({ onFilter }) {
       <select
         value={priceRange.join("-")}
         onChange={(e) =>
-          setPriceRange(e.target.value.split("-").map(Number))
+          setPriceRange(e.target.value.split("-").map((v) => Number(v.trim())))
         }
         style={{ width: "100%", padding: "8px", marginBottom: "5px" }}
       >
@@ -76,7 +84,10 @@ export default function ClientFilter({ onFilter }) {
         <option value="Villa">Villa</option>
       </select>
 
-      <button type="submit" style={{ width: "100%", padding: "10px", marginTop: "5px" }}>
+      <button
+        type="submit"
+        style={{ width: "100%", padding: "10px", marginTop: "5px" }}
+      >
         Filtrer
       </button>
     </form>

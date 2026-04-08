@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { cities } from "../lib/cities";
 import clientImg from "../assets/images/chercher.jpg";
+import { supabase } from "../lib/supabaseClient";
 import "../styles/Form.css";
 
 export default function SearchRent() {
@@ -13,7 +14,7 @@ export default function SearchRent() {
     type: "",
     price: "",
     duration: "mois",
-    rooms: ""
+    rooms: "",
   });
 
   const priceOptions = [
@@ -27,18 +28,41 @@ export default function SearchRent() {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log(form);
-    alert("Recherche lancée 🔍");
 
-    // 🔥 prochaine étape: navigate("/swipe", { state: form })
+    // ✅ parse la tranche de prix
+    let minPrice = 0, maxPrice = 500000;
+    if (form.price) {
+      const [min, max] = form.price.split("-").map(p => parseInt(p.replace(/\s/g, "")));
+      minPrice = min;
+      maxPrice = max;
+    }
+
+    // 🔹 requête Supabase filtrée
+    const { data: listings, error } = await supabase
+      .from("listings")
+      .select("*")
+      .gte("price", minPrice)
+      .lte("price", maxPrice)
+      .eq("city", form.city)
+      .eq(form.type ? "type_logement" : null, form.type || null)
+      .eq(form.duration ? "duration" : null, form.duration || null)
+      .eq(form.rooms ? "rooms" : null, form.rooms ? Number(form.rooms) : null)
+      .ilike(form.district ? "district" : null, form.district ? `%${form.district}%` : null);
+
+    if (error) {
+      console.error(error);
+      return alert("Erreur lors de la recherche. Vérifie la console.");
+    }
+
+    // 🔥 Navigue vers Swipe avec les données
+    navigate("/swipe", { state: { listings, filters: form } });
   };
 
   return (
     <div className="form-page" style={{ backgroundImage: `url(${clientImg})` }}>
       <form className="form-card" onSubmit={handleSubmit}>
-
         <button type="button" onClick={() => navigate(-1)} className="back">
           ← Retour
         </button>
@@ -63,7 +87,6 @@ export default function SearchRent() {
           <option>Maison</option>
         </select>
 
-        {/* ✅ PRIX PAR TRANCHE */}
         <select name="price" onChange={handleChange}>
           <option value="">Budget</option>
           {priceOptions.map((p) => (

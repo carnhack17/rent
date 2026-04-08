@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { cities } from "../lib/cities";
@@ -32,13 +33,89 @@ export default function PostListing() {
     setImages(files);
   };
 
-  const handleSubmit = (e) => {
+  // 🔥 Upload sur Cloudinary
+  const uploadImage = async (file) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("upload_preset", import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET);
+
+    try {
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${import.meta.env.VITE_CLOUDINARY_CLOUD_NAME}/upload`, {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error.message);
+      return data.secure_url;
+    } catch (err) {
+      console.error("Erreur upload Cloudinary", err);
+      throw err;
+    }
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.whatsapp) return alert("WhatsApp obligatoire");
     if (!images.length) return alert("Ajoute au moins une image");
 
-    console.log({ ...form, images });
-    alert("Annonce publiée 🎉");
+    try {
+      // 🔹 Upload de toutes les images
+      const uploadedImages = await Promise.all(images.map((img) => uploadImage(img)));
+
+      // 🔹 Création d'un token de suppression aléatoire
+      const deleteToken = Math.random().toString(36).substring(2, 12);
+
+      // 🔹 Publication sur Supabase
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/rest/v1/listings`, {
+        method: "POST",
+        headers: {
+          "apikey": import.meta.env.VITE_SUPABASE_ANON_KEY,
+          "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          "Content-Type": "application/json",
+          "Prefer": "return=representation",
+        },
+        body: JSON.stringify({
+          type_logement: form.type,
+          city: form.city,
+          district: form.district,
+          price: Number(form.price),
+          duration: form.duration,
+          rooms: Number(form.rooms),
+          whatsapp: form.whatsapp,
+          images: uploadedImages,
+          delete_token: deleteToken,
+        }),
+      });
+
+      const data = await response.json();
+      if (data.error) throw new Error(data.error.message);
+
+      // 🔹 Génération du lien de suppression
+      const deleteUrl = `${window.location.origin}/delete/${deleteToken}`;
+      const waMessage = `Ton logement est publié ! Pour supprimer ton annonce si nécessaire : ${deleteUrl}`;
+      const waLink = `https://wa.me/${form.whatsapp.replace(/\D/g,'')}?text=${encodeURIComponent(waMessage)}`;
+
+      // 🔹 Ouvre WhatsApp dans un nouvel onglet
+      window.open(waLink, "_blank");
+
+      alert("Annonce publiée 🎉");
+
+      // 🔹 Réinitialiser le formulaire
+      setForm({
+        type: "",
+        city: "",
+        district: "",
+        price: "",
+        duration: "mois",
+        rooms: 1,
+        whatsapp: "",
+      });
+      setImages([]);
+      navigate(-1);
+    } catch (err) {
+      console.error(err);
+      alert("Erreur lors de la publication : " + err.message);
+    }
   };
 
   return (
@@ -69,7 +146,6 @@ export default function PostListing() {
           onChange={handleChange}
         />
 
-        {/* ✅ PRIX LIBRE */}
         <input
           type="number"
           name="price"
@@ -99,7 +175,6 @@ export default function PostListing() {
           required
         />
 
-        {/* ✅ BOUTON IMAGE UX */}
         <label className="file-input">
           📸 Choisir les images
           <input type="file" multiple accept="image/*" onChange={handleImages} hidden />
