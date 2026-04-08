@@ -1,8 +1,31 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { cities } from "../lib/cities";
-import louerImg from "../assets/images/louer.jpg";
+import clientImg from "../assets/images/louer.jpg";
 import "../styles/Form.css";
+import { supabase } from "../lib/supabaseClient";
+
+// Génère un token unique pour suppression
+const generateToken = () => {
+  return Math.random().toString(36).substring(2) + Date.now();
+};
+
+// Upload image sur Cloudinary
+const uploadImage = async (image) => {
+  const formData = new FormData();
+  formData.append("file", image);
+  formData.append("upload_preset", import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET);
+
+  const res = await fetch(
+    `https://api.cloudinary.com/v1_1/${import.meta.env.VITE_CLOUDINARY_CLOUD_NAME}/upload`,
+    { method: "POST", body: formData }
+  );
+
+  if (!res.ok) throw new Error("Erreur upload Cloudinary");
+
+  const data = await res.json();
+  return data.secure_url;
+};
 
 export default function PostListing() {
   const navigate = useNavigate();
@@ -32,88 +55,58 @@ export default function PostListing() {
     setImages(files);
   };
 
-  // 🔥 Upload Cloudinary
-  const uploadImage = async (file) => {
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("upload_preset", import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET);
-
-    const res = await fetch(
-      `https://api.cloudinary.com/v1_1/${import.meta.env.VITE_CLOUDINARY_CLOUD_NAME}/upload`,
-      { method: "POST", body: formData }
-    );
-
-    const data = await res.json();
-    if (data.error) throw new Error(data.error.message);
-
-    return data.secure_url;
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     if (!form.whatsapp) return alert("WhatsApp obligatoire");
     if (!images.length) return alert("Ajoute au moins une image");
 
-    // 🔥 OUVRIR WhatsApp AVANT async
-    const waWindow = window.open("", "_blank");
-
     try {
-      const uploadedImages = await Promise.all(images.map(uploadImage));
+      // Upload des images sur Cloudinary
+      const uploadedUrls = await Promise.all(images.map(uploadImage));
 
-      const deleteToken = Math.random().toString(36).substring(2, 12);
+      // Génération token suppression
+      const token = generateToken();
 
-      // 🔥 INSERT SUPABASE
-      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/rest/v1/listings`, {
-        method: "POST",
-        headers: {
-          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          "Content-Type": "application/json",
-          Prefer: "return=representation",
-        },
-        body: JSON.stringify({
+      // Insert dans Supabase
+      const { data, error } = await supabase
+        .from("listings")
+        .insert([{
           type_logement: form.type,
           city: form.city,
           district: form.district,
-          price: Number(form.price),
+          price: form.price,
           duration: form.duration,
-          rooms: Number(form.rooms),
+          rooms: form.rooms,
           whatsapp: form.whatsapp,
-          images: uploadedImages,
-          delete_token: deleteToken,
-        }),
-      });
+          images: uploadedUrls,
+          delete_token: token
+        }])
+        .select();
 
-      const data = await res.json();
-      if (data.error) throw new Error(data.error.message);
+      if (error) throw error;
 
-      // 🔥 LIENS
-      const deleteUrl = `https://rent-nine-taupe.vercel.app/delete/${deleteToken}`;
+      const listingId = data[0].id;
+      const viewLink = `${window.location.origin}/listing/${listingId}`;
+      const deleteLink = `${window.location.origin}/delete/${token}`;
+      const phone = form.whatsapp.replace(/[^\d]/g, "");
 
       const message = encodeURIComponent(
-        `Bonjour 👋\n\nTon annonce est en ligne ✅\n\n🗑 Supprimer : ${deleteUrl}\n\n⚠️ Ne partage pas ce lien`
+        `Bonjour 👋\nVotre annonce est en ligne ✅\n\n📌 Voir : ${viewLink}\n🗑 Supprimer : ${deleteLink}\n⚠️ Conservez ce lien en sécurité`
       );
 
-      const phone = form.whatsapp.replace(/\D/g, "");
-      const waLink = `https://wa.me/${phone}?text=${message}`;
-
-      // 🔥 REDIRECTION vers WhatsApp
-      waWindow.location.href = waLink;
+      // Ouvre WhatsApp avec message
+      window.open(`https://wa.me/${phone}?text=${message}`, "_blank");
 
       alert("Annonce publiée 🎉");
 
-      navigate("/");
-
     } catch (err) {
       console.error(err);
-      waWindow.close();
-      alert("Erreur : " + err.message);
+      alert("Erreur lors de la publication");
     }
   };
 
   return (
-    <div className="form-page" style={{ backgroundImage: `url(${louerImg})` }}>
+    <div className="form-page" style={{ backgroundImage: `url(${clientImg})` }}>
       <form className="form-card" onSubmit={handleSubmit}>
         <button type="button" onClick={() => navigate(-1)} className="back">
           ← Retour
@@ -122,7 +115,7 @@ export default function PostListing() {
         <h2>Louer son bien</h2>
 
         <select name="type" onChange={handleChange} required>
-          <option value="">Type</option>
+          <option value="">Type de logement</option>
           <option>Appartement</option>
           <option>Studio</option>
           <option>Maison</option>
@@ -133,23 +126,47 @@ export default function PostListing() {
           {cities.map((c) => <option key={c}>{c}</option>)}
         </select>
 
-        <input name="district" placeholder="Quartier" onChange={handleChange} />
+        <input
+          name="district"
+          placeholder="Ex: Cocody, Yopougon..."
+          onChange={handleChange}
+        />
 
-        <input type="number" name="price" placeholder="Prix" onChange={handleChange} required />
+        <input
+          type="number"
+          name="price"
+          placeholder="Prix (ex: 75000)"
+          onChange={handleChange}
+          required
+        />
 
         <select name="duration" onChange={handleChange}>
-          <option value="mois">/mois</option>
-          <option value="jour">/jour</option>
+          <option value="mois">Longue durée (/mois)</option>
+          <option value="jour">Courte durée (/jour)</option>
         </select>
 
-        <input type="number" name="rooms" min={1} placeholder="Pièces" onChange={handleChange} />
+        <input
+          type="number"
+          name="rooms"
+          min={1}
+          placeholder="Nombre de pièces"
+          onChange={handleChange}
+        />
 
-        <input name="whatsapp" placeholder="WhatsApp" onChange={handleChange} required />
+        <input
+          name="whatsapp"
+          placeholder="WhatsApp (ex: +225...)"
+          pattern="[0-9+ ]+"
+          onChange={handleChange}
+          required
+        />
 
         <label className="file-input">
-          📸 Images
-          <input type="file" multiple onChange={handleImages} hidden />
+          📸 Choisir les images
+          <input type="file" multiple accept="image/*" onChange={handleImages} hidden />
         </label>
+
+        <p className="hint">1 image minimum, 6 maximum</p>
 
         <div className="preview">
           {images.map((img, i) => (
@@ -157,7 +174,7 @@ export default function PostListing() {
           ))}
         </div>
 
-        <button className="submit">Publier</button>
+        <button className="submit">Publier mon logement</button>
       </form>
     </div>
   );
