@@ -1,31 +1,24 @@
-
 import { useParams, useNavigate } from "react-router-dom";
+import { useEffect } from "react";
 import { supabase } from "../lib/supabaseClient";
-import { useEffect, useState } from "react";
 
 export default function DeleteListing() {
   const { token } = useParams();
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const deleteListing = async () => {
-      const { data, error } = await supabase
+    const deleteItem = async () => {
+      await supabase
         .from("listings")
         .delete()
         .eq("delete_token", token);
 
-      if (error) {
-        alert("Erreur suppression");
-      } else {
-        alert("Annonce supprimée ✅");
-      }
-
+      alert("Annonce supprimée ✅");
       navigate("/");
     };
 
-    deleteListing();
+    deleteItem();
   }, [token]);
 
-  return <p style={{ textAlign: "center" }}>Suppression en cours...</p>;
+  return <p style={{ textAlign: "center" }}>Suppression...</p>;
 }
